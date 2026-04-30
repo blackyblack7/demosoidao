@@ -1,0 +1,72 @@
+import { checkAdminAccess } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { 
+  Newspaper, 
+  Plus, 
+  ChevronRight
+} from "lucide-react";
+import NewsList from "./_components/NewsList";
+
+export default async function NewsManagementPage() {
+  const hasAccess = await checkAdminAccess(); // Basic admin check is enough or specific group
+
+  if (!hasAccess) {
+    redirect("/access-denied");
+  }
+
+  const news = await prisma.blogPost.findMany({
+    where: {
+      NOT: {
+        categoryRef: { name: 'ประกาศ' }
+      }
+    },
+    include: {
+      author: {
+        select: { firstName: true, lastName: true, prefixRef: { select: { name: true } } }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  return (
+    <div className="min-h-screen bg-slate-50/50 pb-20 pt-28">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Breadcrumbs */}
+        <nav className="flex mb-8 text-sm font-medium text-slate-500 items-center gap-2">
+          <Link href="/sdservice" className="hover:text-blue-600 transition-colors">SD Service</Link>
+          <ChevronRight size={14} />
+          <span className="text-slate-800">จัดการข่าวประชาสัมพันธ์</span>
+        </nav>
+
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
+              <div className="p-2 bg-indigo-600/10 text-indigo-600 rounded-2xl">
+                <Newspaper size={32} />
+              </div>
+              จัดการข่าวประชาสัมพันธ์
+            </h1>
+            <p className="text-slate-500 mt-2 font-medium">
+              เพิ่ม แก้ไข และลบข่าวสารหรือกิจกรรมรอบรั้วโรงเรียน
+            </p>
+          </div>
+          
+          <Link 
+            href="/management/news/new"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all transform hover:-translate-y-1"
+          >
+            <Plus size={20} />
+            เขียนข่าวใหม่
+          </Link>
+        </div>
+
+        {/* News List Table */}
+        <NewsList initialNews={news} />
+
+      </div>
+    </div>
+  );
+}

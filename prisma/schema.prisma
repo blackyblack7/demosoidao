@@ -1,0 +1,522 @@
+// Normalized Schema v1.1
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Teacher {
+  id               Int       @id @default(autoincrement())
+  nationalId       String?   @unique @db.VarChar(13)
+  username         String    @unique @db.VarChar(20)
+  password         String?   @db.VarChar(255)
+  profileImage     String?   @db.Text
+  dateOfBirth      DateTime?
+  genderId         Int?
+  genderRef        Gender?             @relation(fields: [genderId], references: [id])
+  prefixId         Int?
+  prefixRef        Prefix?             @relation(fields: [prefixId], references: [id])
+  firstName        String              @db.VarChar(100)
+  lastName         String              @db.VarChar(100)
+  nickName         String?             @db.VarChar(50)
+  email            String?             @unique @db.VarChar(100)
+  positionId       Int?
+  positionRef      TeacherPosition?    @relation(fields: [positionId], references: [id])
+  academicStandingId Int?
+  academicStandingRef AcademicStanding? @relation(fields: [academicStandingId], references: [id])
+  qualification    String?             @db.VarChar(150)
+  major            String?             @db.VarChar(150)
+  phoneNumber      String?             @db.VarChar(20)
+  lineId           String?             @db.VarChar(100)
+
+  // ข้อมูลทางกายภาพ
+  weight           Decimal?  @db.Decimal(5, 2)
+  height           Decimal?  @db.Decimal(5, 2)
+  bloodGroupId     Int?
+  bloodGroupRef    BloodGroup?       @relation(fields: [bloodGroupId], references: [id])
+  otherInfo        String?   @db.Text
+
+  // ที่อยู่ตามทะเบียนบ้าน
+  houseNumber String? @db.VarChar(50)
+  moo         String? @db.VarChar(10)
+  subDistrict String? @db.VarChar(100)
+  district    String? @db.VarChar(100)
+  province    String? @db.VarChar(100)
+  zipCode     String? @db.VarChar(10)
+
+  // ที่อยู่ปัจจุบัน
+  currentHouseNumber String? @db.VarChar(50)
+  currentMoo         String? @db.VarChar(10)
+  currentSubDistrict String? @db.VarChar(100)
+  currentDistrict    String? @db.VarChar(100)
+  currentProvince    String? @db.VarChar(100)
+  currentZipCode     String? @db.VarChar(10)
+
+  departmentId Int?
+  department   AcademicDepartment? @relation("DepartmentTeachers", fields: [departmentId], references: [id])
+  headedDepartment AcademicDepartment? @relation("DepartmentHead")
+  divisions    AdminDivision[]     @relation("TeacherDivisions")
+  adminGroups  AdminGroup[]        @relation("TeacherAdminGroups")
+  subjects     Subject[]
+  extraDuties  TeacherExtraDuty[]
+  homerooms    HomeroomAssignment[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  isAdmin      Boolean             @default(false)
+  personnelCategoryId Int?
+  personnelCategoryRef PersonnelCategory? @relation(fields: [personnelCategoryId], references: [id])
+  
+  auditLogs    AuditLog[]
+  blogPosts    BlogPost[]
+  
+  // Leave system relations
+  headApprovedLeaveRequests   LeaveRequest[] @relation("HeadApprovedLeaveRequests")
+  deputyApprovedLeaveRequests LeaveRequest[] @relation("DeputyApprovedLeaveRequests")
+  directorApprovedLeaveRequests LeaveRequest[] @relation("DirectorApprovedLeaveRequests")
+  securityLeaveRequests       LeaveRequest[] @relation("SecurityLeaveRequests")
+  notifications               Notification[]
+  
+  leaves                      TeacherLeave[] @relation("TeacherLeaves")
+  staffVerifiedLeaves         TeacherLeave[] @relation("StaffVerifiedLeaves")
+  headApprovedLeaves          TeacherLeave[] @relation("HeadApprovedLeaves")
+  deputyApprovedLeaves        TeacherLeave[] @relation("DeputyApprovedLeaves")
+  directorApprovedLeaves      TeacherLeave[] @relation("DirectorApprovedLeaves")
+  deniedLeaves                TeacherLeave[] @relation("DeniedLeaves")
+  
+  headedDivisions             AdminDivision[] @relation("DivisionHead")
+  headedGroups                AdminGroup[]    @relation("GroupHead")
+
+  // Room Booking relations
+  roomBookings                RoomBooking[]   @relation("BookingRequester")
+  avApprovedBookings          RoomBooking[]   @relation("AVApprovedBookings")
+  deputyApprovedBookings      RoomBooking[]   @relation("DeputyApprovedBookings")
+  directorApprovedBookings    RoomBooking[]   @relation("DirectorApprovedBookings")
+  deniedBookings              RoomBooking[]   @relation("DeniedBookings")
+  sitePopups                  SitePopup[]
+}
+
+model AcademicDepartment {
+  id             Int       @id @default(autoincrement())
+  departmentName String    @db.VarChar(100)
+  teachers       Teacher[] @relation("DepartmentTeachers")
+
+  headId         Int?      @unique
+  head           Teacher?  @relation("DepartmentHead", fields: [headId], references: [id])
+}
+
+model AdminDivision {
+  id           Int         @id @default(autoincrement())
+  divisionName String      @db.VarChar(100)
+  groupId      Int?
+  group        AdminGroup? @relation(fields: [groupId], references: [id])
+  teachers     Teacher[]   @relation("TeacherDivisions")
+  
+  headId       Int?
+  head         Teacher?    @relation("DivisionHead", fields: [headId], references: [id])
+}
+
+model AdminGroup {
+  id            Int             @id @default(autoincrement())
+  groupName     String          @unique @db.VarChar(100)
+  groupKey      String?         @unique @db.VarChar(50)
+  divisions     AdminDivision[]
+  members       Teacher[]       @relation("TeacherAdminGroups")
+  
+  headId        Int?
+  head          Teacher?        @relation("GroupHead", fields: [headId], references: [id])
+}
+
+model BlogPost {
+  id        Int      @id @default(autoincrement())
+  title     String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(255)
+  content   String   @db.Text
+  excerpt   String?  @db.Text
+  thumbnail String?  @db.Text
+  gallery   Json?
+  driveLink String?  @db.Text
+  published Boolean  @default(false)
+  authorId  Int
+  author    Teacher  @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  categoryId Int?
+  categoryRef NewsCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([createdAt])
+  @@index([slug])
+}
+
+model AcademicYear {
+  id                 Int                  @id @default(autoincrement())
+  semester           Int
+  year               Int
+  isActive           Boolean              @default(false)
+  enrollments        Enrollment[]
+  homeroomAssignments HomeroomAssignment[]
+  studentTermData    StudentTermData[]
+  leaveRequests      LeaveRequest[]
+  auditLogs          AuditLog[]
+}
+
+model Student {
+  id                Int      @id @default(autoincrement())
+  nationalId        String   @unique @db.VarChar(13)
+  studentCode       String   @unique @db.VarChar(20)
+  password          String?  @db.VarChar(255)
+  profileImage      String?  @db.Text
+  dateOfBirth       DateTime?
+  prefixId          Int?
+  prefixRef         Prefix?  @relation(fields: [prefixId], references: [id])
+  firstNameTh       String   @db.VarChar(100)
+  lastNameTh        String   @db.VarChar(100)
+  genderId          Int?
+  genderRef         Gender?  @relation(fields: [genderId], references: [id])
+  disadvantagedTypeId Int?
+  disadvantagedTypeRef DisadvantagedType? @relation(fields: [disadvantagedTypeId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  termData     StudentTermData[]
+  parents      StudentParent[]
+  addresses    StudentAddress[]
+  enrollments  Enrollment[]
+  leaveRequests LeaveRequest[]
+}
+
+model StudentTermData {
+  id            Int          @id @default(autoincrement())
+  gradeLevel    String       @db.VarChar(50)
+  roomNumber    Int
+  studentNumber Int?
+  weight        Decimal?     @db.Decimal(5, 2)
+  height        Decimal?     @db.Decimal(5, 2)
+  statusId      Int?
+  statusRef     StudentStatus? @relation(fields: [statusId], references: [id])
+  studentId     Int
+  student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  termId        Int
+  term          AcademicYear @relation(fields: [termId], references: [id])
+
+  @@index([termId, gradeLevel, roomNumber])
+}
+
+model StudentParent {
+  id           Int     @id @default(autoincrement())
+  relationshipId Int?
+  relationshipRef ParentRelationship? @relation(fields: [relationshipId], references: [id])
+  nationalId   String? @db.VarChar(13)
+  prefixId     Int?
+  prefixRef    Prefix? @relation(fields: [prefixId], references: [id])
+  firstName    String  @db.VarChar(100)
+  lastName     String  @db.VarChar(100)
+  phoneNumber  String? @db.VarChar(20)
+  studentId    Int
+  student      Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model StudentAddress {
+  id          Int     @id @default(autoincrement())
+  addressTypeId Int?
+  addressTypeRef AddressType? @relation(fields: [addressTypeId], references: [id])
+  houseNumber String  @db.VarChar(50)
+  moo         String? @db.VarChar(10)
+  subDistrict String  @db.VarChar(100)
+  district    String  @db.VarChar(100)
+  province    String  @db.VarChar(100)
+  zipCode     String  @db.VarChar(10)
+  studentId   Int
+  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Subject {
+  id          Int          @id @default(autoincrement())
+  subjectCode String       @unique @db.VarChar(20)
+  subjectName String       @db.VarChar(150)
+  credits     Decimal      @db.Decimal(3, 1)
+  teacherId   Int?
+  teacher     Teacher?     @relation(fields: [teacherId], references: [id])
+  enrollments Enrollment[]
+}
+
+model Enrollment {
+  id        Int          @id @default(autoincrement())
+  studentId Int
+  student   Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId Int
+  subject   Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  termId    Int
+  term      AcademicYear @relation(fields: [termId], references: [id])
+}
+
+model HomeroomAssignment {
+  id        Int          @id @default(autoincrement())
+  teacherId Int
+  teacher   Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  termId    Int
+  term      AcademicYear @relation(fields: [termId], references: [id])
+  gradeLevel String      @db.VarChar(50)
+  roomNumber Int
+}
+
+model LeaveRequest {
+  id           Int          @id @default(autoincrement())
+  studentId    Int
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  leaveTypeId  Int?
+  leaveTypeRef StudentLeaveType? @relation(fields: [leaveTypeId], references: [id])
+  reason       String       @db.Text
+  startDate    DateTime
+  endDate      DateTime
+  status       String       @default("รอการอนุมัติ") @db.VarChar(50)
+  termId       Int
+  term         AcademicYear @relation(fields: [termId], references: [id])
+  
+  headApprovedById   Int?
+  headApprovedBy     Teacher? @relation("HeadApprovedLeaveRequests", fields: [headApprovedById], references: [id])
+  deputyApprovedById Int?
+  deputyApprovedBy   Teacher? @relation("DeputyApprovedLeaveRequests", fields: [deputyApprovedById], references: [id])
+  directorApprovedById Int?
+  directorApprovedBy Teacher? @relation("DirectorApprovedLeaveRequests", fields: [directorApprovedById], references: [id])
+  securityById       Int?
+  securityBy         Teacher? @relation("SecurityLeaveRequests", fields: [securityById], references: [id])
+  
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([status])
+}
+
+model TeacherExtraDuty {
+  id           Int     @id @default(autoincrement())
+  teacherId    Int
+  teacher      Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  roleTitle    String  @db.VarChar(150)
+  academicYear Int
+}
+
+model TeacherLeave {
+  id                     Int       @id @default(autoincrement())
+  teacherId              Int
+  teacher                Teacher   @relation("TeacherLeaves", fields: [teacherId], references: [id])
+  leaveTypeId            Int?
+  leaveTypeRef           TeacherLeaveType? @relation(fields: [leaveTypeId], references: [id])
+  reason                 String    @db.Text
+  startDate              DateTime
+  endDate                DateTime
+  totalDays              Int
+  
+  staffVerifiedById      Int?
+  staffVerifiedBy        Teacher?  @relation("StaffVerifiedLeaves", fields: [staffVerifiedById], references: [id])
+  headApprovedById       Int?
+  headApprovedBy         Teacher?  @relation("HeadApprovedLeaves", fields: [headApprovedById], references: [id])
+  deputyApprovedById     Int?
+  deputyApprovedBy       Teacher?  @relation("DeputyApprovedLeaves", fields: [deputyApprovedById], references: [id])
+  directorApprovedById   Int?
+  directorApprovedBy     Teacher?  @relation("DirectorApprovedLeaves", fields: [directorApprovedById], references: [id])
+  deniedById             Int?
+  deniedBy               Teacher?  @relation("DeniedLeaves", fields: [deniedById], references: [id])
+  
+  status                 String    @default("pending") @db.VarChar(50)
+  previousLeavesCount    Int?      @default(0)
+  lastLeaveInfo          String?   @db.Text
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      Teacher  @relation(fields: [userId], references: [id])
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  type      String   @db.VarChar(50)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id             Int           @id @default(autoincrement())
+  action         String        @db.VarChar(100)
+  module         String        @db.VarChar(100)
+  details        String?       @db.Text
+  actorId        Int?
+  actor          Teacher?      @relation(fields: [actorId], references: [id])
+  academicYearId Int?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+  createdAt      DateTime      @default(now())
+
+  @@index([createdAt])
+  @@index([module])
+}
+
+model SystemService {
+  id                  Int      @id @default(autoincrement())
+  serviceKey          String   @unique @db.VarChar(100)
+  name                String   @db.VarChar(255)
+  isUnderMaintenance  Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
+}
+
+model Prefix {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique @db.VarChar(50)
+  teachers Teacher[]
+  students Student[]
+  parents  StudentParent[]
+}
+
+model TeacherPosition {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique @db.VarChar(100)
+  level    Int       @default(0)
+  teachers Teacher[]
+}
+
+model AcademicStanding {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique @db.VarChar(100)
+  teachers Teacher[]
+}
+
+model PersonnelCategory {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique @db.VarChar(100)
+  teachers Teacher[]
+}
+
+model Gender {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique @db.VarChar(50)
+  teachers Teacher[]
+  students Student[]
+}
+
+model StudentStatus {
+  id          Int               @id @default(autoincrement())
+  name        String            @unique @db.VarChar(50)
+  studentTerms StudentTermData[]
+}
+
+model TeacherLeaveType {
+  id      Int            @id @default(autoincrement())
+  name    String         @unique @db.VarChar(100)
+  leaves  TeacherLeave[]
+}
+
+model StudentLeaveType {
+  id      Int            @id @default(autoincrement())
+  name    String         @unique @db.VarChar(100)
+  leaves  LeaveRequest[]
+}
+
+model NewsCategory {
+  id     Int        @id @default(autoincrement())
+  name   String     @unique @db.VarChar(100)
+  posts  BlogPost[]
+}
+
+model DisadvantagedType {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique @db.VarChar(100)
+  students Student[]
+}
+
+model ParentRelationship {
+  id      Int             @id @default(autoincrement())
+  name    String          @unique @db.VarChar(50)
+  parents StudentParent[]
+}
+
+// ─── Room Booking System ─────────────────────────────────────────────────────
+
+model Room {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique @db.VarChar(100)
+  description String?       @db.Text
+  imageUrl    String?       @db.VarChar(255)
+  capacity    Int?
+  isActive    Boolean       @default(true)
+  bookings    RoomBooking[]
+}
+
+model RoomBooking {
+  id              Int      @id @default(autoincrement())
+  roomId          Int
+  room            Room     @relation(fields: [roomId], references: [id])
+  requesterId     Int
+  requester       Teacher  @relation("BookingRequester", fields: [requesterId], references: [id])
+
+  // Event info
+  title           String   @db.VarChar(255)
+  purpose         String   @db.Text
+  bookingOrg      String   @db.VarChar(255)  // กลุ่มสาระ / ฝ่ายงาน / กรอกเอง
+
+  // Time
+  startTime       DateTime
+  endTime         DateTime
+
+  // Equipment requests
+  equipLedScreen  Boolean  @default(false)
+  equipProjector  Boolean  @default(false)
+  equipSound      Boolean  @default(false)
+  equipMicCount   Int      @default(0)
+  equipNotes      String?  @db.Text
+
+  // Approval chain
+  statusId                Int?      @default(1)
+  statusRef               BookingStatus? @relation(fields: [statusId], references: [id])
+  avApprovedById          Int?
+  avApprovedBy            Teacher? @relation("AVApprovedBookings", fields: [avApprovedById], references: [id])
+  avApprovedAt            DateTime?
+  deputyApprovedById      Int?
+  deputyApprovedBy        Teacher? @relation("DeputyApprovedBookings", fields: [deputyApprovedById], references: [id])
+  deputyApprovedAt        DateTime?
+  directorApprovedById    Int?
+  directorApprovedBy      Teacher? @relation("DirectorApprovedBookings", fields: [directorApprovedById], references: [id])
+  directorApprovedAt      DateTime?
+  deniedById              Int?
+  deniedBy                Teacher? @relation("DeniedBookings", fields: [deniedById], references: [id])
+  deniedReason            String?  @db.Text
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([statusId])
+  @@index([startTime])
+  @@index([roomId, startTime])
+}
+
+model AddressType {
+  id        Int              @id @default(autoincrement())
+  name      String           @unique @db.VarChar(100)
+  addresses StudentAddress[]
+}
+
+model BloodGroup {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique @db.VarChar(20)
+  teachers Teacher[]
+}
+
+model BookingStatus {
+  id       Int           @id @default(autoincrement())
+  name     String        @unique @db.VarChar(100)
+  key      String        @unique @db.VarChar(50)
+  bookings RoomBooking[]
+}
+
+model SitePopup {
+  id        Int      @id @default(1)
+  isActive  Boolean  @default(false)
+  imageUrl  String   @db.Text
+  linkUrl   String?  @db.Text
+  updatedAt DateTime @updatedAt
+  updatedBy Int?
+  teacher   Teacher? @relation(fields: [updatedBy], references: [id])
+}
