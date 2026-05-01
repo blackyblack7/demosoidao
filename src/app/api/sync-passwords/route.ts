@@ -64,9 +64,25 @@ export async function GET(request: NextRequest) {
     const teacherResult = await syncModel('teacher');
     const studentResult = await syncModel('student');
 
+    // Debugging path information for Plesk
+    let rootDir = process.cwd();
+    const isStandalone = rootDir.includes('standalone');
+    if (isStandalone) {
+      rootDir = require('path').join(rootDir, '..', '..');
+    }
+    const publicPath = require('path').join(rootDir, 'public');
+    const publicExists = require('fs').existsSync(publicPath);
+
     return NextResponse.json({
       status: 'success',
       message: 'Password synchronization completed',
+      debug: {
+        cwd: process.cwd(),
+        rootDir,
+        isStandalone,
+        publicPath,
+        publicExists
+      },
       results: [teacherResult, studentResult]
     });
   } catch (error: any) {

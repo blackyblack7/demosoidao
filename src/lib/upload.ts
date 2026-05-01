@@ -46,7 +46,15 @@ export async function uploadImage(file: File, options: UploadOptions) {
 
   const fileName = `${filenamePrefix}-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
   const relativeDir = path.join("uploads", folder);
-  const uploadDir = path.join(process.cwd(), "public", relativeDir);
+  
+  // Robust path resolution for Plesk Standalone mode
+  let rootDir = process.cwd();
+  if (rootDir.includes(path.join('.next', 'standalone'))) {
+    // If running from .next/standalone, move up to the actual project root
+    rootDir = path.join(rootDir, '..', '..');
+  }
+  
+  const uploadDir = path.join(rootDir, "public", relativeDir);
 
   // Ensure directory exists
   await fs.mkdir(uploadDir, { recursive: true });
@@ -68,7 +76,12 @@ export async function deleteFile(filePath: string | null | undefined) {
     // Only allow deleting from the uploads folder for safety
     if (!filePath.startsWith('/uploads/')) return;
 
-    const fullPath = path.join(process.cwd(), "public", filePath);
+    let rootDir = process.cwd();
+    if (rootDir.includes(path.join('.next', 'standalone'))) {
+      rootDir = path.join(rootDir, '..', '..');
+    }
+
+    const fullPath = path.join(rootDir, "public", filePath);
     
     // Check if exists before deleting
     await fs.access(fullPath);
