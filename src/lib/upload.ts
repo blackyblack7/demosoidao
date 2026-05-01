@@ -24,9 +24,10 @@ export async function uploadImage(
     filenamePrefix?: string;
     width?: number;
     height?: number;
+    fit?: keyof sharp.FitEnum;
   }
 ) {
-  const { folder, filenamePrefix = "upload", width, height } = options;
+  const { folder, filenamePrefix = "upload", width, height, fit = "cover" } = options;
 
   try {
     const bytes = await image.arrayBuffer();
@@ -53,7 +54,7 @@ export async function uploadImage(
 
     if (width || height) {
       pipeline = pipeline.resize(width, height, {
-        fit: "cover",
+        fit: fit,
         position: "center",
       });
     }
@@ -66,7 +67,6 @@ export async function uploadImage(
     await writeFile(filePath, webpBuffer);
 
     // Return the URL path for database storage
-    // Always returns /uploads/folder/filename.webp for the web
     return `/${relativeDir}/${fileName}`.replace(/\\/g, '/');
   } catch (error) {
     console.error("Upload error:", error);
