@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     
     // Force revalidate
     revalidatePath('/', 'layout');
-    revalidateTag('news');
+    revalidatePath('/news', 'page');
     
     return NextResponse.json({
       status: 'success',
