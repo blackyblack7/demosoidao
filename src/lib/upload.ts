@@ -44,12 +44,20 @@ export async function uploadImage(file: File, options: UploadOptions) {
     .webp({ quality: 80, effort: 4 })
     .toBuffer();
 
-  const fileName = `${filenamePrefix}-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
-  const relativeDir = path.join("uploads", folder);
+  const uniqueId = Math.random().toString(36).substring(2, 15);
+  const fileName = `${filenamePrefix}-${Date.now()}-${uniqueId}.webp`;
+  const relativeDir = path.join("uploads", folder).replace(/\\/g, '/');
   const uploadDir = path.join(process.cwd(), "public", relativeDir);
 
-  // Ensure directory exists
-  await fs.mkdir(uploadDir, { recursive: true });
+  // Ensure directory exists - use a more robust check for Linux/Windows
+  try {
+    const fsSync = require('fs');
+    if (!fsSync.existsSync(uploadDir)) {
+      fsSync.mkdirSync(uploadDir, { recursive: true });
+    }
+  } catch (err) {
+    console.error("Directory creation error:", err);
+  }
 
   const fullPath = path.join(uploadDir, fileName);
   await fs.writeFile(fullPath, webpBuffer);
