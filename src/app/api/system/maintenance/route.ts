@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from "@/lib/prisma";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import fs from 'fs';
 import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-async function fixUploadDirectories() {
+/**
+ * Maintenance API - Simplified version
+ * No more Symlinks/Junctions. 
+ * Relies on server.js to serve files directly from the root public/uploads folder.
+ */
+async function runMaintenance() {
   const cwd = process.cwd();
   
-  // Standard paths
-  const standalonePublic = path.join(cwd, 'public');
-  const standaloneUploads = path.join(standalonePublic, 'uploads');
-  
-  // Root paths
+  // Find the true project root public folder
   let rootDir = cwd;
   const isStandalone = cwd.includes('standalone');
   if (isStandalone) {
@@ -26,34 +27,30 @@ async function fixUploadDirectories() {
   let fileList: Record<string, string[]> = {};
 
   try {
+    // 1. Just ensure directories exist in the true root
+    const subdirs = ['news', 'popup', 'profiles'];
     if (!fs.existsSync(rootUploads)) {
       fs.mkdirSync(rootUploads, { recursive: true });
+      log.push("Created root uploads directory");
     }
 
-    if (isStandalone && fs.existsSync(standalonePublic)) {
-      if (fs.existsSync(standaloneUploads)) {
-        const stats = fs.lstatSync(standaloneUploads);
-        if (!stats.isSymbolicLink()) {
-          const backupName = `uploads_bak_${Date.now()}`;
-          fs.renameSync(standaloneUploads, path.join(standalonePublic, backupName));
-        }
+    subdirs.forEach(dir => {
+      const p = path.join(rootUploads, dir);
+      if (!fs.existsSync(p)) {
+        fs.mkdirSync(p, { recursive: true });
+        log.push(`Created directory: ${dir}`);
       }
-
-      if (!fs.existsSync(standaloneUploads)) {
-        fs.symlinkSync(rootUploads, standaloneUploads, 'junction');
-        log.push("✅ Junction Created");
+      if (fs.existsSync(p)) {
+        fileList[dir] = fs.readdirSync(p).slice(-5).reverse();
       }
+    });
+    
+    log.push("✅ Directories are ready in the project root.");
+  } catch (e: any) {
+    log.push(`Error: ${e.message}`);
+  }
 
-      const subdirs = ['news', 'popup', 'profiles'];
-      subdirs.forEach(dir => {
-        const p = path.join(rootUploads, dir);
-        if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-        if (fs.existsSync(p)) fileList[dir] = fs.readdirSync(p).slice(-5).reverse();
-      });
-    }
-  } catch (e: any) { log.push(`FS Error: ${e.message}`); }
-
-  // Database Check
+  // 2. Database Check
   const dbStatus: any = {};
   try {
     dbStatus.popups = await prisma.sitePopup.findMany();
@@ -62,7 +59,9 @@ async function fixUploadDirectories() {
       take: 5,
       select: { id: true, title: true, thumbnail: true, published: true }
     });
-  } catch (err: any) { dbStatus.error = err.message; }
+  } catch (err: any) {
+    dbStatus.error = err.message;
+  }
 
   return { isStandalone, cwd, rootDir, log, fileList, dbStatus };
 }
@@ -74,7 +73,7 @@ export async function GET(request: NextRequest) {
   if (key !== 'full_sync') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const result = await fixUploadDirectories();
+    const result = await runMaintenance();
     
     // Force revalidate
     revalidatePath('/', 'layout');
@@ -82,7 +81,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       status: 'success',
-      message: 'Maintenance completed and Cache cleared',
+      message: 'Maintenance completed. System is now using direct file serving.',
       debug: result
     });
   } catch (error: any) {
