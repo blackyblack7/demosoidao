@@ -46,12 +46,32 @@ async function fixUploadDirectories() {
           // On Windows Plesk, 'junction' is the most compatible way for directory links
           fs.symlinkSync(rootUploads, standaloneUploads, 'junction');
           log.push("✅ Successfully created Junction for uploads! (standalone -> root)");
+          
+          // Pre-create common subdirectories to ensure permissions are inherited correctly
+          const subdirs = ['news', 'popup', 'profiles'];
+          subdirs.forEach(dir => {
+            const p = path.join(rootUploads, dir);
+            if (!fs.existsSync(p)) {
+              fs.mkdirSync(p, { recursive: true });
+              log.push(`Pre-created subdir: ${dir}`);
+            }
+          });
         } catch (e: any) {
           log.push(`❌ Junction error: ${e.message}`);
         }
       } else {
         log.push("Uploads path already exists and is likely a link.");
       }
+
+      // Always ensure common subdirectories exist in root
+      const subdirs = ['news', 'popup', 'profiles'];
+      subdirs.forEach(dir => {
+        const p = path.join(rootUploads, dir);
+        if (!fs.existsSync(p)) {
+          fs.mkdirSync(p, { recursive: true });
+          log.push(`Pre-created subdir: ${dir}`);
+        }
+      });
     } else {
       log.push(`Not in standalone or public dir missing. CWD: ${cwd}`);
     }
