@@ -51,6 +51,54 @@ async function syncModel(modelName: 'teacher' | 'student') {
   return { model: modelName, total: users.length, updated, alreadyCorrect, skipped };
 }
 
+async function fixUploadDirectories() {
+  const fs = require('fs');
+  const path = require('path');
+  const cwd = process.cwd();
+  
+  // Standard paths
+  const standalonePublic = path.join(cwd, 'public');
+  const standaloneUploads = path.join(standalonePublic, 'uploads');
+  
+  // Root paths (2 levels up if in standalone)
+  let rootDir = cwd;
+  const isStandalone = cwd.includes('standalone');
+  if (isStandalone) {
+    rootDir = path.join(cwd, '..', '..');
+  }
+  const rootPublic = path.join(rootDir, 'public');
+  const rootUploads = path.join(rootPublic, 'uploads');
+
+  let log = [];
+
+  try {
+    // 1. Ensure root uploads exists
+    if (!fs.existsSync(rootUploads)) {
+      fs.mkdirSync(rootUploads, { recursive: true });
+      log.push(`Created root uploads dir: ${rootUploads}`);
+    }
+
+    // 2. Handle standalone uploads
+    if (isStandalone && fs.existsSync(standalonePublic)) {
+      if (!fs.existsSync(standaloneUploads)) {
+        // Create junction: standalone/public/uploads -> root/public/uploads
+        try {
+          fs.symlinkSync(rootUploads, standaloneUploads, 'junction');
+          log.push("Successfully created Junction for uploads");
+        } catch (e: any) {
+          log.push(`Junction error: ${e.message}`);
+        }
+      } else {
+        log.push("Uploads directory already exists in standalone");
+      }
+    }
+  } catch (e: any) {
+    log.push(`Fatal Error: ${e.message}`);
+  }
+
+  return { isStandalone, rootDir, log };
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const key = searchParams.get('key');
@@ -63,26 +111,12 @@ export async function GET(request: NextRequest) {
   try {
     const teacherResult = await syncModel('teacher');
     const studentResult = await syncModel('student');
-
-    // Debugging path information for Plesk
-    let rootDir = process.cwd();
-    const isStandalone = rootDir.includes('standalone');
-    if (isStandalone) {
-      rootDir = require('path').join(rootDir, '..', '..');
-    }
-    const publicPath = require('path').join(rootDir, 'public');
-    const publicExists = require('fs').existsSync(publicPath);
+    const junctionResult = await fixUploadDirectories();
 
     return NextResponse.json({
       status: 'success',
-      message: 'Password synchronization completed',
-      debug: {
-        cwd: process.cwd(),
-        rootDir,
-        isStandalone,
-        publicPath,
-        publicExists
-      },
+      message: 'Maintenance completed',
+      debug: junctionResult,
       results: [teacherResult, studentResult]
     });
   } catch (error: any) {
