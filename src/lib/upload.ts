@@ -74,7 +74,7 @@ export async function uploadImage(
   }
 }
 
-export async function deleteFile(relativeUrl: string) {
+export async function deleteFile(relativeUrl: string | null | undefined) {
   if (!relativeUrl) return;
 
   try {

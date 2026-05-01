@@ -123,7 +123,9 @@ export async function adminUpdateNews(id: number, formData: FormData) {
     let thumbnailPath = current.thumbnail;
     if (thumbnailFile && thumbnailFile.size > 0) {
       // Clean up old thumbnail
-      await deleteFile(current.thumbnail);
+      if (current.thumbnail) {
+        await deleteFile(current.thumbnail);
+      }
       thumbnailPath = await uploadImage(thumbnailFile, {
         folder: `news/${slug}`,
         filenamePrefix: 'thumb',
