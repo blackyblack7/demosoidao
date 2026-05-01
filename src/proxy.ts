@@ -19,18 +19,9 @@ const PROTECTED_PATHS = [
 const AUTH_ONLY_PATHS = ['/login'];
 
 export async function proxy(request: NextRequest) {
+  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const { pathname } = request.nextUrl;
 
-  // 1. Intercept requests to /uploads/
-  // This ensures newly uploaded images are visible without a rebuild
-  if (pathname.startsWith('/uploads/')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/api/system/serve-image';
-    url.searchParams.set('path', pathname);
-    return NextResponse.rewrite(url);
-  }
-
-  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const session = sessionCookie ? await decrypt(sessionCookie) : null;
 
   const isProtected = PROTECTED_PATHS.some(p => pathname.startsWith(p));
@@ -53,6 +44,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Update matcher to NOT exclude uploads anymore
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|uploads).*)'],
 };

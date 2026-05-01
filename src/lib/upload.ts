@@ -1,90 +1,92 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import sharp from 'sharp';
-
-interface UploadOptions {
-  folder: string;
-  filenamePrefix: string;
-  maxWidth?: number;
-  maxHeight?: number;
-  fit?: keyof sharp.FitEnum;
-}
+import { writeFile, mkdir, unlink } from "fs/promises";
+import path from "path";
+import sharp from "sharp";
+import fs from "fs";
 
 /**
- * Standardized Image Upload Utility
- * Handles WebP conversion, resizing, and professional organization
+ * Returns the absolute path to the project's TRUE public directory.
+ * In standalone mode, process.cwd() is .next/standalone, so we need to go up 2 levels.
  */
-export async function uploadImage(file: File, options: UploadOptions) {
-  if (!file || file.size === 0) return null;
-
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  // Default optimization settings
-  const { 
-    folder, 
-    filenamePrefix, 
-    maxWidth = 1200, 
-    maxHeight, 
-    fit = 'inside' 
-  } = options;
-
-  let pipeline = sharp(buffer);
-
-  // Resize if needed
-  if (maxWidth || maxHeight) {
-    pipeline = pipeline.resize(maxWidth, maxHeight, {
-      fit,
-      withoutEnlargement: true // Never upscale
-    });
+function getPublicPath() {
+  const cwd = process.cwd();
+  // If we are inside the standalone directory, the real public is 2 levels up
+  if (cwd.includes('standalone')) {
+    return path.join(cwd, '..', '..', 'public');
   }
+  // Otherwise, it's just the local public folder
+  return path.join(cwd, 'public');
+}
 
-  // Convert to WebP with balanced quality
-  const webpBuffer = await pipeline
-    .webp({ quality: 80, effort: 4 })
-    .toBuffer();
+export async function uploadImage(
+  image: File,
+  options: {
+    folder: string;
+    filenamePrefix?: string;
+    width?: number;
+    height?: number;
+  }
+) {
+  const { folder, filenamePrefix = "upload", width, height } = options;
 
-  const uniqueId = Math.random().toString(36).substring(2, 15);
-  const fileName = `${filenamePrefix}-${Date.now()}-${uniqueId}.webp`;
-  const relativeDir = path.join("uploads", folder).replace(/\\/g, '/');
-  const uploadDir = path.join(process.cwd(), "public", relativeDir);
-
-  // Ensure directory exists - use a more robust check for Linux/Windows
   try {
-    const fsSync = require('fs');
-    if (!fsSync.existsSync(uploadDir)) {
-      fsSync.mkdirSync(uploadDir, { recursive: true });
+    const bytes = await image.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Create unique filename with .webp extension
+    const uniqueId = Math.random().toString(36).substring(2, 8);
+    const fileName = `${filenamePrefix}-${Date.now()}-${uniqueId}.webp`;
+    
+    // Determine the true public path
+    const publicRoot = getPublicPath();
+    const relativeDir = path.join("uploads", folder);
+    const uploadDir = path.join(publicRoot, relativeDir);
+
+    // Ensure directory exists
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
-  } catch (err) {
-    console.error("Directory creation error:", err);
+
+    const filePath = path.join(uploadDir, fileName);
+
+    // Process image with sharp: resize and convert to webp
+    let pipeline = sharp(buffer);
+
+    if (width || height) {
+      pipeline = pipeline.resize(width, height, {
+        fit: "cover",
+        position: "center",
+      });
+    }
+
+    const webpBuffer = await pipeline
+      .webp({ quality: 80, effort: 4 })
+      .toBuffer();
+
+    // Write file to disk
+    await writeFile(filePath, webpBuffer);
+
+    // Return the URL path for database storage
+    // Always returns /uploads/folder/filename.webp for the web
+    return `/${relativeDir}/${fileName}`.replace(/\\/g, '/');
+  } catch (error) {
+    console.error("Upload error:", error);
+    throw new Error("Failed to upload image");
   }
-
-  const fullPath = path.join(uploadDir, fileName);
-  await fs.writeFile(fullPath, webpBuffer);
-
-  // Return the path relative to the public folder
-  return `/${relativeDir}/${fileName}`.replace(/\\/g, '/');
 }
 
-/**
- * Safely delete an image from the server
- */
-export async function deleteFile(filePath: string | null | undefined) {
-  if (!filePath) return;
-  
-  try {
-    // Only allow deleting from the uploads folder for safety
-    if (!filePath.startsWith('/uploads/')) return;
+export async function deleteFile(relativeUrl: string) {
+  if (!relativeUrl) return;
 
-    const fullPath = path.join(process.cwd(), "public", filePath);
-    
-    // Check if exists before deleting
-    await fs.access(fullPath);
-    await fs.unlink(fullPath);
-    
-    console.log(`Deleted file: ${fullPath}`);
+  try {
+    const publicRoot = getPublicPath();
+    // Remove leading slash if exists
+    const normalizedUrl = relativeUrl.startsWith('/') ? relativeUrl.slice(1) : relativeUrl;
+    const filePath = path.join(publicRoot, normalizedUrl);
+
+    if (fs.existsSync(filePath)) {
+      await unlink(filePath);
+    }
   } catch (error) {
-    // Silently fail if file doesn't exist or can't be deleted
-    console.error(`Error deleting file ${filePath}:`, error);
+    console.error("Delete error:", error);
   }
 }
