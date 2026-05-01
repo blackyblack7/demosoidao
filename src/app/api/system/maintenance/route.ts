@@ -19,6 +19,7 @@ async function fixUploadDirectories() {
   const rootUploads = path.join(rootPublic, 'uploads');
 
   let log = [];
+  let fileList: Record<string, string[]> = {};
 
   try {
     // 1. Ensure root uploads exists
@@ -29,7 +30,6 @@ async function fixUploadDirectories() {
 
     // 2. Handle standalone uploads junction
     if (isStandalone && fs.existsSync(standalonePublic)) {
-      // If standalone uploads exists as a real directory, we must move it to create a junction
       if (fs.existsSync(standaloneUploads)) {
         const stats = fs.lstatSync(standaloneUploads);
         if (!stats.isSymbolicLink()) {
@@ -40,22 +40,10 @@ async function fixUploadDirectories() {
         }
       }
 
-      // Create junction: standalone/public/uploads -> root/public/uploads
       if (!fs.existsSync(standaloneUploads)) {
         try {
-          // On Windows Plesk, 'junction' is the most compatible way for directory links
           fs.symlinkSync(rootUploads, standaloneUploads, 'junction');
           log.push("✅ Successfully created Junction for uploads! (standalone -> root)");
-          
-          // Pre-create common subdirectories to ensure permissions are inherited correctly
-          const subdirs = ['news', 'popup', 'profiles'];
-          subdirs.forEach(dir => {
-            const p = path.join(rootUploads, dir);
-            if (!fs.existsSync(p)) {
-              fs.mkdirSync(p, { recursive: true });
-              log.push(`Pre-created subdir: ${dir}`);
-            }
-          });
         } catch (e: any) {
           log.push(`❌ Junction error: ${e.message}`);
         }
@@ -68,8 +56,17 @@ async function fixUploadDirectories() {
       subdirs.forEach(dir => {
         const p = path.join(rootUploads, dir);
         if (!fs.existsSync(p)) {
-          fs.mkdirSync(p, { recursive: true });
-          log.push(`Pre-created subdir: ${dir}`);
+          try {
+            fs.mkdirSync(p, { recursive: true });
+            log.push(`Pre-created subdir: ${dir}`);
+          } catch (err: any) {
+            log.push(`❌ Failed to create subdir ${dir}: ${err.message}`);
+          }
+        }
+        
+        // List files for debugging
+        if (fs.existsSync(p)) {
+          fileList[dir] = fs.readdirSync(p).slice(0, 10); // show first 10 files
         }
       });
     } else {
@@ -79,7 +76,7 @@ async function fixUploadDirectories() {
     log.push(`Fatal Error: ${e.message}`);
   }
 
-  return { isStandalone, cwd, rootDir, log };
+  return { isStandalone, cwd, rootDir, log, fileList };
 }
 
 export async function GET(request: NextRequest) {
