@@ -146,7 +146,7 @@ export async function adminUpdateNews(id: number, formData: FormData) {
            const p = await uploadImage(file, {
              folder: `news/${slug}`,
              filenamePrefix: 'gallery',
-             maxWidth: 1200
+             width: 1200
            });
            if (p) newPaths.push(p);
          }
