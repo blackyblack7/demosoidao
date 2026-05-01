@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 
 async function fixUploadDirectories() {
   const fs = require('fs');
@@ -28,32 +27,45 @@ async function fixUploadDirectories() {
       log.push(`Created root uploads dir: ${rootUploads}`);
     }
 
-    // 2. Handle standalone uploads
+    // 2. Handle standalone uploads junction
     if (isStandalone && fs.existsSync(standalonePublic)) {
+      // If standalone uploads exists as a real directory, we must move it to create a junction
+      if (fs.existsSync(standaloneUploads)) {
+        const stats = fs.lstatSync(standaloneUploads);
+        if (!stats.isSymbolicLink()) {
+          const backupName = `uploads_bak_${Date.now()}`;
+          const backupPath = path.join(standalonePublic, backupName);
+          fs.renameSync(standaloneUploads, backupPath);
+          log.push(`Moved existing standalone uploads directory to ${backupName}`);
+        }
+      }
+
+      // Create junction: standalone/public/uploads -> root/public/uploads
       if (!fs.existsSync(standaloneUploads)) {
-        // Create junction: standalone/public/uploads -> root/public/uploads
         try {
+          // On Windows Plesk, 'junction' is the most compatible way for directory links
           fs.symlinkSync(rootUploads, standaloneUploads, 'junction');
-          log.push("Successfully created Junction for uploads");
+          log.push("✅ Successfully created Junction for uploads! (standalone -> root)");
         } catch (e: any) {
-          log.push(`Junction error: ${e.message}`);
+          log.push(`❌ Junction error: ${e.message}`);
         }
       } else {
-        log.push("Uploads directory already exists in standalone");
+        log.push("Uploads path already exists and is likely a link.");
       }
+    } else {
+      log.push(`Not in standalone or public dir missing. CWD: ${cwd}`);
     }
   } catch (e: any) {
     log.push(`Fatal Error: ${e.message}`);
   }
 
-  return { isStandalone, rootDir, log };
+  return { isStandalone, cwd, rootDir, log };
 }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const key = searchParams.get('key');
 
-  // Security check: /api/system/maintenance?key=full_sync
   if (key !== 'full_sync') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
