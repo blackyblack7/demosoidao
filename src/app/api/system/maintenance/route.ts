@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from "@/lib/prisma";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 async function fixUploadDirectories() {
   const fs = require('fs');
@@ -10,7 +11,7 @@ async function fixUploadDirectories() {
   const standalonePublic = path.join(cwd, 'public');
   const standaloneUploads = path.join(standalonePublic, 'uploads');
   
-  // Root paths (2 levels up if in standalone)
+  // Root paths
   let rootDir = cwd;
   const isStandalone = cwd.includes('standalone');
   if (isStandalone) {
@@ -23,71 +24,43 @@ async function fixUploadDirectories() {
   let fileList: Record<string, string[]> = {};
 
   try {
-    // 1. Ensure root uploads exists
     if (!fs.existsSync(rootUploads)) {
       fs.mkdirSync(rootUploads, { recursive: true });
-      log.push(`Created root uploads dir: ${rootUploads}`);
     }
 
-    // 2. Handle standalone uploads junction
     if (isStandalone && fs.existsSync(standalonePublic)) {
       if (fs.existsSync(standaloneUploads)) {
         const stats = fs.lstatSync(standaloneUploads);
         if (!stats.isSymbolicLink()) {
           const backupName = `uploads_bak_${Date.now()}`;
-          const backupPath = path.join(standalonePublic, backupName);
-          fs.renameSync(standaloneUploads, backupPath);
-          log.push(`Moved existing standalone uploads directory to ${backupName}`);
+          fs.renameSync(standaloneUploads, path.join(standalonePublic, backupName));
         }
       }
 
       if (!fs.existsSync(standaloneUploads)) {
-        try {
-          fs.symlinkSync(rootUploads, standaloneUploads, 'junction');
-          log.push("✅ Successfully created Junction for uploads! (standalone -> root)");
-        } catch (e: any) {
-          log.push(`❌ Junction error: ${e.message}`);
-        }
-      } else {
-        log.push("Uploads path already exists and is likely a link.");
+        fs.symlinkSync(rootUploads, standaloneUploads, 'junction');
+        log.push("✅ Junction Created");
       }
 
-      // Ensure common subdirectories
       const subdirs = ['news', 'popup', 'profiles'];
       subdirs.forEach(dir => {
         const p = path.join(rootUploads, dir);
-        if (!fs.existsSync(p)) {
-          fs.mkdirSync(p, { recursive: true });
-        }
-        if (fs.existsSync(p)) {
-          fileList[dir] = fs.readdirSync(p).slice(-5).reverse(); // show latest 5 files
-        }
+        if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+        if (fs.existsSync(p)) fileList[dir] = fs.readdirSync(p).slice(-5).reverse();
       });
     }
-  } catch (e: any) {
-    log.push(`Fatal Error: ${e.message}`);
-  }
+  } catch (e: any) { log.push(`FS Error: ${e.message}`); }
 
-  // 3. Database Check
+  // Database Check - Get ALL popups and latest news
   const dbStatus: any = {};
   try {
-    const popup = await prisma.sitePopup.findFirst();
-    dbStatus.popup = {
-      id: popup?.id,
-      imageUrl: popup?.imageUrl,
-      isActive: popup?.isActive,
-      fileExists: popup?.imageUrl ? fs.existsSync(path.join(rootDir, 'public', popup.imageUrl)) : false
-    };
-
-    const latestNews = await prisma.blogPost.findFirst({ orderBy: { createdAt: 'desc' } });
-    dbStatus.latestNews = {
-      title: latestNews?.title,
-      thumbnail: latestNews?.thumbnail,
-      fileExists: latestNews?.thumbnail ? fs.existsSync(path.join(rootDir, 'public', latestNews.thumbnail)) : false
-    };
-  } catch (err: any) {
-    dbStatus.error = err.message;
-  }
+    dbStatus.popups = await prisma.sitePopup.findMany();
+    dbStatus.latestNews = await prisma.blogPost.findMany({ 
+      orderBy: { createdAt: 'desc' }, 
+      take: 5,
+      select: { id: true, title: true, thumbnail: true, published: true }
+    });
+  } catch (err: any) { dbStatus.error = err.message; }
 
   return { isStandalone, cwd, rootDir, log, fileList, dbStatus };
 }
@@ -96,19 +69,21 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const key = searchParams.get('key');
 
-  if (key !== 'full_sync') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (key !== 'full_sync') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const junctionResult = await fixUploadDirectories();
+    const result = await fixUploadDirectories();
+    
+    // Force revalidate everything to clear any stuck cache
+    revalidatePath('/', 'layout');
+    revalidateTag('news');
+    
     return NextResponse.json({
       status: 'success',
-      message: 'System maintenance completed',
-      debug: junctionResult
+      message: 'Maintenance completed and Cache cleared',
+      debug: result
     });
   } catch (error: any) {
-    console.error('Maintenance Error:', error);
     return NextResponse.json({ status: 'error', message: error.message }, { status: 500 });
   }
 }
