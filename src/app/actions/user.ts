@@ -3,7 +3,7 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { uploadImage } from "@/lib/upload";
+import { uploadImage, deleteFile } from "@/lib/upload";
 
 export async function updateProfile(formData: FormData) {
   const session = await getSession();
@@ -104,6 +104,15 @@ export async function uploadProfileImage(formData: FormData) {
   if (!image || image.size === 0) return { error: "ไม่พบไฟล์รูปภาพ" };
 
   try {
+    // Clean up old image if it exists to save space
+    const currentUser = role === "TEACHER" 
+      ? await prisma.teacher.findUnique({ where: { id: userId } })
+      : await prisma.student.findUnique({ where: { id: userId } });
+    
+    if (currentUser?.profileImage) {
+      await deleteFile(currentUser.profileImage);
+    }
+
     const dbPath = await uploadImage(image, {
       folder: "profiles",
       filenamePrefix: `${role.toLowerCase()}-${userId}`,

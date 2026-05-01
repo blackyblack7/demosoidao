@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { checkAdminAccess } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { uploadImage } from "@/lib/upload";
+import { uploadImage, deleteFile } from "@/lib/upload";
 
 export async function getSitePopup() {
   try {
@@ -32,6 +32,11 @@ export async function updateSitePopup(formData: FormData) {
     let newImageUrl = popup?.imageUrl || "";
 
     if (imageFile && imageFile.size > 0 && imageFile.name !== "undefined") {
+      // Clean up old image if it exists
+      if (popup?.imageUrl) {
+        await deleteFile(popup.imageUrl);
+      }
+
       const dbPath = await uploadImage(imageFile, {
         folder: "popup",
         filenamePrefix: "popup",
