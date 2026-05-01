@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "next build && node -e \"const fs=require('fs'); const path=require('path'); const copyDir=(src, dest)=>{ if(!fs.existsSync(dest)) fs.mkdirSync(dest, {recursive:true}); fs.readdirSync(src).forEach(file=>{ const s=path.join(src, file); const d=path.join(dest, file); if(fs.lstatSync(s).isDirectory()) copyDir(s, d); else fs.copyFileSync(s, d); }); }; copyDir('.next/static', '.next/standalone/.next/static'); copyDir('public', '.next/standalone/public');\"",
     "start": "next start",
     "lint": "eslint",
     "generate": "prisma generate"
