@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from "@/lib/prisma";
 import { revalidatePath, revalidateTag } from "next/cache";
+import fs from 'fs';
+import path from 'path';
+
+export const dynamic = 'force-dynamic';
 
 async function fixUploadDirectories() {
-  const fs = require('fs');
-  const path = require('path');
   const cwd = process.cwd();
   
   // Standard paths
@@ -51,7 +53,7 @@ async function fixUploadDirectories() {
     }
   } catch (e: any) { log.push(`FS Error: ${e.message}`); }
 
-  // Database Check - Get ALL popups and latest news
+  // Database Check
   const dbStatus: any = {};
   try {
     dbStatus.popups = await prisma.sitePopup.findMany();
@@ -74,7 +76,7 @@ export async function GET(request: NextRequest) {
   try {
     const result = await fixUploadDirectories();
     
-    // Force revalidate everything to clear any stuck cache
+    // Force revalidate
     revalidatePath('/', 'layout');
     revalidateTag('news');
     
