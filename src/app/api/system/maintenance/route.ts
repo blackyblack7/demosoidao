@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from "@/lib/prisma";
 
 async function fixUploadDirectories() {
   const fs = require('fs');
@@ -51,32 +52,44 @@ async function fixUploadDirectories() {
         log.push("Uploads path already exists and is likely a link.");
       }
 
-      // Always ensure common subdirectories exist in root
+      // Ensure common subdirectories
       const subdirs = ['news', 'popup', 'profiles'];
       subdirs.forEach(dir => {
         const p = path.join(rootUploads, dir);
         if (!fs.existsSync(p)) {
-          try {
-            fs.mkdirSync(p, { recursive: true });
-            log.push(`Pre-created subdir: ${dir}`);
-          } catch (err: any) {
-            log.push(`❌ Failed to create subdir ${dir}: ${err.message}`);
-          }
+          fs.mkdirSync(p, { recursive: true });
         }
-        
-        // List files for debugging
         if (fs.existsSync(p)) {
-          fileList[dir] = fs.readdirSync(p).slice(0, 10); // show first 10 files
+          fileList[dir] = fs.readdirSync(p).slice(-5).reverse(); // show latest 5 files
         }
       });
-    } else {
-      log.push(`Not in standalone or public dir missing. CWD: ${cwd}`);
     }
   } catch (e: any) {
     log.push(`Fatal Error: ${e.message}`);
   }
 
-  return { isStandalone, cwd, rootDir, log, fileList };
+  // 3. Database Check
+  const dbStatus: any = {};
+  try {
+    const popup = await prisma.sitePopup.findFirst();
+    dbStatus.popup = {
+      id: popup?.id,
+      imageUrl: popup?.imageUrl,
+      isActive: popup?.isActive,
+      fileExists: popup?.imageUrl ? fs.existsSync(path.join(rootDir, 'public', popup.imageUrl)) : false
+    };
+
+    const latestNews = await prisma.blogPost.findFirst({ orderBy: { createdAt: 'desc' } });
+    dbStatus.latestNews = {
+      title: latestNews?.title,
+      thumbnail: latestNews?.thumbnail,
+      fileExists: latestNews?.thumbnail ? fs.existsSync(path.join(rootDir, 'public', latestNews.thumbnail)) : false
+    };
+  } catch (err: any) {
+    dbStatus.error = err.message;
+  }
+
+  return { isStandalone, cwd, rootDir, log, fileList, dbStatus };
 }
 
 export async function GET(request: NextRequest) {
@@ -89,7 +102,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const junctionResult = await fixUploadDirectories();
-
     return NextResponse.json({
       status: 'success',
       message: 'System maintenance completed',
