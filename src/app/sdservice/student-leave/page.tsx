@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -16,6 +17,12 @@ export default async function StudentLeaveDashboard() {
   if (!session) {
     redirect("/login");
   }
+
+  const headersList = await headers();
+  const host = headersList.get("host") || "";
+  const forwardedProto = headersList.get("x-forwarded-proto");
+  const protocol = forwardedProto || (process.env.NODE_ENV === "development" ? "http" : "https");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : "");
 
   const isTeacher = session.role === "TEACHER";
   
@@ -117,7 +124,7 @@ export default async function StudentLeaveDashboard() {
                   <div className="bg-slate-50 p-6 rounded-[2rem] border-4 border-dashed border-blue-100 shadow-inner group">
                     <div className="bg-white p-4 rounded-3xl shadow-lg transform group-hover:scale-110 transition-transform duration-500">
                       <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`${process.env.NEXT_PUBLIC_APP_URL || ''}/v/${activeRequest.id}`)}`}
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`${appUrl}/v/${activeRequest.id}`)}`}
                         alt="Leave Request QR Code"
                         className="w-48 h-48 md:w-56 md:h-56"
                       />

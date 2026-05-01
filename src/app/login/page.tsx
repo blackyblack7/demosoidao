@@ -50,7 +50,9 @@ export default function LoginPage() {
       setError((result as any).error);
       setIsPending(false);
     } else if (result?.success) {
-      router.push('/');
+      const searchParams = new URLSearchParams(window.location.search);
+      const callbackUrl = searchParams.get('callbackUrl') || '/';
+      router.push(callbackUrl);
       router.refresh();
     }
   }

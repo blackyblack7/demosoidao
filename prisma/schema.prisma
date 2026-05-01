@@ -58,8 +58,8 @@ model Teacher {
   departmentId Int?
   department   AcademicDepartment? @relation("DepartmentTeachers", fields: [departmentId], references: [id])
   headedDepartment AcademicDepartment? @relation("DepartmentHead")
-  divisions    AdminDivision[]     @relation("TeacherDivisions")
-  adminGroups  AdminGroup[]        @relation("TeacherAdminGroups")
+  divisions    AdminDivision[]     @relation("teacherdivisions")
+  adminGroups  AdminGroup[]        @relation("teacheradmingroups")
   subjects     Subject[]
   extraDuties  TeacherExtraDuty[]
   homerooms    HomeroomAssignment[]
@@ -96,6 +96,8 @@ model Teacher {
   directorApprovedBookings    RoomBooking[]   @relation("DirectorApprovedBookings")
   deniedBookings              RoomBooking[]   @relation("DeniedBookings")
   sitePopups                  SitePopup[]
+
+  @@map("teacher")
 }
 
 model AcademicDepartment {
@@ -105,6 +107,8 @@ model AcademicDepartment {
 
   headId         Int?      @unique
   head           Teacher?  @relation("DepartmentHead", fields: [headId], references: [id])
+
+  @@map("academicdepartment")
 }
 
 model AdminDivision {
@@ -112,10 +116,12 @@ model AdminDivision {
   divisionName String      @db.VarChar(100)
   groupId      Int?
   group        AdminGroup? @relation(fields: [groupId], references: [id])
-  teachers     Teacher[]   @relation("TeacherDivisions")
+  teachers     Teacher[]   @relation("teacherdivisions")
   
   headId       Int?
   head         Teacher?    @relation("DivisionHead", fields: [headId], references: [id])
+
+  @@map("admindivision")
 }
 
 model AdminGroup {
@@ -123,10 +129,12 @@ model AdminGroup {
   groupName     String          @unique @db.VarChar(100)
   groupKey      String?         @unique @db.VarChar(50)
   divisions     AdminDivision[]
-  members       Teacher[]       @relation("TeacherAdminGroups")
+  members       Teacher[]       @relation("teacheradmingroups")
   
   headId        Int?
   head          Teacher?        @relation("GroupHead", fields: [headId], references: [id])
+
+  @@map("admingroup")
 }
 
 model BlogPost {
@@ -148,6 +156,8 @@ model BlogPost {
 
   @@index([createdAt])
   @@index([slug])
+
+  @@map("blogpost")
 }
 
 model AcademicYear {
@@ -160,6 +170,8 @@ model AcademicYear {
   studentTermData    StudentTermData[]
   leaveRequests      LeaveRequest[]
   auditLogs          AuditLog[]
+
+  @@map("academicyear")
 }
 
 model Student {
@@ -185,6 +197,8 @@ model Student {
   addresses    StudentAddress[]
   enrollments  Enrollment[]
   leaveRequests LeaveRequest[]
+
+  @@map("student")
 }
 
 model StudentTermData {
@@ -202,6 +216,8 @@ model StudentTermData {
   term          AcademicYear @relation(fields: [termId], references: [id])
 
   @@index([termId, gradeLevel, roomNumber])
+
+  @@map("studenttermdata")
 }
 
 model StudentParent {
@@ -216,6 +232,8 @@ model StudentParent {
   phoneNumber  String? @db.VarChar(20)
   studentId    Int
   student      Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("studentparent")
 }
 
 model StudentAddress {
@@ -230,6 +248,8 @@ model StudentAddress {
   zipCode     String  @db.VarChar(10)
   studentId   Int
   student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("studentaddress")
 }
 
 model Subject {
@@ -240,6 +260,8 @@ model Subject {
   teacherId   Int?
   teacher     Teacher?     @relation(fields: [teacherId], references: [id])
   enrollments Enrollment[]
+
+  @@map("subject")
 }
 
 model Enrollment {
@@ -250,6 +272,8 @@ model Enrollment {
   subject   Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   termId    Int
   term      AcademicYear @relation(fields: [termId], references: [id])
+
+  @@map("enrollment")
 }
 
 model HomeroomAssignment {
@@ -260,6 +284,8 @@ model HomeroomAssignment {
   term      AcademicYear @relation(fields: [termId], references: [id])
   gradeLevel String      @db.VarChar(50)
   roomNumber Int
+
+  @@map("homeroomassignment")
 }
 
 model LeaveRequest {
@@ -288,6 +314,8 @@ model LeaveRequest {
   updatedAt    DateTime     @updatedAt
 
   @@index([status])
+
+  @@map("leaverequest")
 }
 
 model TeacherExtraDuty {
@@ -296,6 +324,8 @@ model TeacherExtraDuty {
   teacher      Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   roleTitle    String  @db.VarChar(150)
   academicYear Int
+
+  @@map("teacherextraduty")
 }
 
 model TeacherLeave {
@@ -327,6 +357,8 @@ model TeacherLeave {
   updatedAt              DateTime  @updatedAt
 
   @@index([status])
+
+  @@map("teacherleave")
 }
 
 model Notification {
@@ -338,6 +370,8 @@ model Notification {
   isRead    Boolean  @default(false)
   type      String   @db.VarChar(50)
   createdAt DateTime @default(now())
+
+  @@map("notification")
 }
 
 model AuditLog {
@@ -353,6 +387,8 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([module])
+
+  @@map("auditlog")
 }
 
 model SystemService {
@@ -361,6 +397,8 @@ model SystemService {
   name                String   @db.VarChar(255)
   isUnderMaintenance  Boolean  @default(false)
   updatedAt           DateTime @updatedAt
+
+  @@map("systemservice")
 }
 
 model Prefix {
@@ -369,6 +407,8 @@ model Prefix {
   teachers Teacher[]
   students Student[]
   parents  StudentParent[]
+
+  @@map("prefix")
 }
 
 model TeacherPosition {
@@ -376,18 +416,24 @@ model TeacherPosition {
   name     String    @unique @db.VarChar(100)
   level    Int       @default(0)
   teachers Teacher[]
+
+  @@map("teacherposition")
 }
 
 model AcademicStanding {
   id       Int       @id @default(autoincrement())
   name     String    @unique @db.VarChar(100)
   teachers Teacher[]
+
+  @@map("academicstanding")
 }
 
 model PersonnelCategory {
   id       Int       @id @default(autoincrement())
   name     String    @unique @db.VarChar(100)
   teachers Teacher[]
+
+  @@map("personnelcategory")
 }
 
 model Gender {
@@ -395,42 +441,56 @@ model Gender {
   name     String    @unique @db.VarChar(50)
   teachers Teacher[]
   students Student[]
+
+  @@map("gender")
 }
 
 model StudentStatus {
   id          Int               @id @default(autoincrement())
   name        String            @unique @db.VarChar(50)
   studentTerms StudentTermData[]
+
+  @@map("studentstatus")
 }
 
 model TeacherLeaveType {
   id      Int            @id @default(autoincrement())
   name    String         @unique @db.VarChar(100)
   leaves  TeacherLeave[]
+
+  @@map("teacherleavetype")
 }
 
 model StudentLeaveType {
   id      Int            @id @default(autoincrement())
   name    String         @unique @db.VarChar(100)
   leaves  LeaveRequest[]
+
+  @@map("studentleavetype")
 }
 
 model NewsCategory {
   id     Int        @id @default(autoincrement())
   name   String     @unique @db.VarChar(100)
   posts  BlogPost[]
+
+  @@map("newscategory")
 }
 
 model DisadvantagedType {
   id       Int       @id @default(autoincrement())
   name     String    @unique @db.VarChar(100)
   students Student[]
+
+  @@map("disadvantagedtype")
 }
 
 model ParentRelationship {
   id      Int             @id @default(autoincrement())
   name    String          @unique @db.VarChar(50)
   parents StudentParent[]
+
+  @@map("parentrelationship")
 }
 
 // ─── Room Booking System ─────────────────────────────────────────────────────
@@ -443,6 +503,8 @@ model Room {
   capacity    Int?
   isActive    Boolean       @default(true)
   bookings    RoomBooking[]
+
+  @@map("room")
 }
 
 model RoomBooking {
@@ -490,18 +552,24 @@ model RoomBooking {
   @@index([statusId])
   @@index([startTime])
   @@index([roomId, startTime])
+
+  @@map("roombooking")
 }
 
 model AddressType {
   id        Int              @id @default(autoincrement())
   name      String           @unique @db.VarChar(100)
   addresses StudentAddress[]
+
+  @@map("addresstype")
 }
 
 model BloodGroup {
   id       Int       @id @default(autoincrement())
   name     String    @unique @db.VarChar(20)
   teachers Teacher[]
+
+  @@map("bloodgroup")
 }
 
 model BookingStatus {
@@ -509,6 +577,8 @@ model BookingStatus {
   name     String        @unique @db.VarChar(100)
   key      String        @unique @db.VarChar(50)
   bookings RoomBooking[]
+
+  @@map("bookingstatus")
 }
 
 model SitePopup {
@@ -519,4 +589,6 @@ model SitePopup {
   updatedAt DateTime @updatedAt
   updatedBy Int?
   teacher   Teacher? @relation(fields: [updatedBy], references: [id])
+
+  @@map("sitepopup")
 }

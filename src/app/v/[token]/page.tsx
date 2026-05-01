@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { 
   User, 
   Clock, 
@@ -54,6 +54,11 @@ export default async function PublicVerificationPage({ params }: { params: Promi
   }
 
   const session = await getSession();
+  
+  if (!session) {
+    redirect(`/login?callbackUrl=/v/${token}`);
+  }
+
   const teacher = session?.role === "TEACHER" ? await prisma.teacher.findUnique({
     where: { id: session.userId },
     include: { divisions: true, positionRef: true }
