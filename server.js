@@ -14,21 +14,20 @@ if (!fs.existsSync(serverPath)) {
   process.exit(1);
 }
 
-// Import the standalone server
-// Next.js standalone server.js exports the handler as a default/module property in recent versions
+// Import the standalone server handler
 const nextHandler = require(serverPath).handler;
 
 if (!nextHandler) {
-  // If not exported as handler, just require it and let it start itself (fallback)
   console.log('Using default Next.js standalone runner...');
   require(serverPath);
 } else {
   const server = http.createServer((req, res) => {
     // Intercept /uploads/ requests to serve them directly from the root public folder
-    // This ensures new uploads are visible immediately without a restart or rebuild
     if (req.url.startsWith('/uploads/')) {
       const decodedUrl = decodeURIComponent(req.url);
-      const filePath = path.join(__dirname, 'public', decodedUrl);
+      // IMPORTANT for Linux: remove leading slash to avoid path.join treating it as absolute
+      const relativePath = decodedUrl.startsWith('/') ? decodedUrl.slice(1) : decodedUrl;
+      const filePath = path.join(__dirname, 'public', relativePath);
       
       if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
         const ext = path.extname(filePath).toLowerCase();
@@ -41,7 +40,10 @@ if (!nextHandler) {
           '.svg': 'image/svg+xml'
         };
         
-        res.writeHead(200, { 'Content-Type': contentTypes[ext] || 'application/octet-stream' });
+        res.writeHead(200, { 
+          'Content-Type': contentTypes[ext] || 'application/octet-stream',
+          'Cache-Control': 'public, max-age=3600' 
+        });
         fs.createReadStream(filePath).pipe(res);
         return;
       }
@@ -54,6 +56,6 @@ if (!nextHandler) {
   const port = process.env.PORT || 3000;
   server.listen(port, (err) => {
     if (err) throw err;
-    console.log(`> Ready on http://localhost:${port} (with dynamic upload serving)`);
+    console.log(`> Ready on http://localhost:${port} (serving uploads directly from disk)`);
   });
 }
