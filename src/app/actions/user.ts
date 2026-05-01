@@ -116,7 +116,7 @@ export async function uploadProfileImage(formData: FormData) {
     const dbPath = await uploadImage(image, {
       folder: "profiles",
       filenamePrefix: `${role.toLowerCase()}-${userId}`,
-      maxWidth: 600
+      width: 600
     });
 
     if (!dbPath) return { error: "เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ" };

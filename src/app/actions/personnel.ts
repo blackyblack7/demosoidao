@@ -63,8 +63,8 @@ export async function adminCreateTeacher(formData: FormData) {
       profileImagePath = await uploadImage(profileImageFile, {
         folder: "personnel",
         filenamePrefix: `profile-${username}`,
-        maxWidth: 400,
-        maxHeight: 400,
+        width: 400,
+        height: 400,
         fit: 'cover'
       });
     }
@@ -196,8 +196,8 @@ export async function adminUpdateTeacher(id: number, formData: FormData) {
       profileImagePath = await uploadImage(profileImageFile, {
         folder: "personnel",
         filenamePrefix: `profile-${username || currentTeacher.username}`,
-        maxWidth: 400,
-        maxHeight: 400,
+        width: 400,
+        height: 400,
         fit: 'cover'
       });
     }

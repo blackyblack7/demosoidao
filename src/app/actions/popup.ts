@@ -40,7 +40,7 @@ export async function updateSitePopup(formData: FormData) {
       const dbPath = await uploadImage(imageFile, {
         folder: "popup",
         filenamePrefix: "popup",
-        maxWidth: 1200
+        width: 1200
       });
       
       if (dbPath) {
