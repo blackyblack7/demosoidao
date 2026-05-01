@@ -103,8 +103,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const key = searchParams.get('key');
 
-  // Security check: /api/sync-passwords?key=soidao_sync
-  if (key !== 'soidao_sync') {
+  // Security check: /api/system/maintenance?key=full_sync
+  if (key !== 'full_sync') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
