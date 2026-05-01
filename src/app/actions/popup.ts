@@ -3,9 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { checkAdminAccess } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { unlink, writeFile } from "fs/promises";
-import path from "path";
-import crypto from "crypto";
+import { uploadImage } from "@/lib/upload";
 
 export async function getSitePopup() {
   try {
@@ -34,25 +32,15 @@ export async function updateSitePopup(formData: FormData) {
     let newImageUrl = popup?.imageUrl || "";
 
     if (imageFile && imageFile.size > 0 && imageFile.name !== "undefined") {
-      const bytes = await imageFile.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-
-      const uniqueSuffix = Date.now() + '-' + crypto.randomBytes(4).toString('hex');
-      const filename = `popup-${uniqueSuffix}.webp`; // Assuming we want it as webp or save as original
-      // In a real app we'd convert it using sharp, but let's just save it with original extension or webp if we don't have sharp here
+      const dbPath = await uploadImage(imageFile, {
+        folder: "popup",
+        filenamePrefix: "popup",
+        maxWidth: 1200
+      });
       
-      const uploadDir = path.join(process.cwd(), "public", "uploads", "popup");
-      
-      // Ensure dir exists (we can use fs.mkdir with recursive, but since it's simple, we'll try to just write. Wait, let's make sure it exists)
-      const fs = require("fs");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+      if (dbPath) {
+        newImageUrl = dbPath;
       }
-
-      const filePath = path.join(uploadDir, filename);
-      await writeFile(filePath, buffer);
-      
-      newImageUrl = `/uploads/popup/${filename}`;
     } else if (!keepExistingImage) {
       return { error: "กรุณาอัปโหลดรูปภาพ Popup" };
     }

@@ -3,8 +3,7 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { uploadImage } from "@/lib/upload";
 
 export async function updateProfile(formData: FormData) {
   const session = await getSession();
@@ -105,21 +104,13 @@ export async function uploadProfileImage(formData: FormData) {
   if (!image || image.size === 0) return { error: "ไม่พบไฟล์รูปภาพ" };
 
   try {
-    const bytes = await image.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const dbPath = await uploadImage(image, {
+      folder: "profiles",
+      filenamePrefix: `${role.toLowerCase()}-${userId}`,
+      maxWidth: 600
+    });
 
-    const ext = path.extname(image.name) || ".jpg";
-    const fileName = `${role.toLowerCase()}-${userId}-${Date.now()}${ext}`;
-    const relativeDir = path.join("uploads", "profiles");
-    const uploadDir = path.join(process.cwd(), "public", relativeDir);
-
-    // Ensure directory exists
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    const filePath = path.join(uploadDir, fileName);
-    await fs.writeFile(filePath, buffer);
-
-    const dbPath = `/${relativeDir}/${fileName}`.replace(/\\/g, '/');
+    if (!dbPath) return { error: "เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ" };
 
     if (role === "TEACHER") {
       await prisma.teacher.update({
