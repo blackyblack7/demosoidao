@@ -56,7 +56,7 @@ export async function adminCreateNews(formData: FormData) {
       thumbnailPath = await uploadImage(thumbnailFile, {
         folder: `news/${slug}`,
         filenamePrefix: 'thumb',
-        maxWidth: 1200
+        width: 1200
       });
     }
 
@@ -66,7 +66,7 @@ export async function adminCreateNews(formData: FormData) {
         const p = await uploadImage(file, {
           folder: `news/${slug}`,
           filenamePrefix: 'gallery',
-          maxWidth: 1200
+          width: 1200
         });
         if (p) galleryPaths.push(p);
       }
@@ -127,7 +127,7 @@ export async function adminUpdateNews(id: number, formData: FormData) {
       thumbnailPath = await uploadImage(thumbnailFile, {
         folder: `news/${slug}`,
         filenamePrefix: 'thumb',
-        maxWidth: 1200
+        width: 1200
       });
     }
 
